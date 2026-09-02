@@ -2093,6 +2093,19 @@ class VllmConfig:
                             if n * query_len <= max_cudagraph_capture_size
                         }
                     )
+            elif (
+                self.compilation_config.cudagraph_capture_sizes is None
+                and self.uniform_decode_query_len > 1
+            ):
+                # A scalar maximum still uses the inferred capture-size grid.
+                # Retain the widest uniform decode batch when it fits, since it
+                # may not land on the grid's 8/16-token stride. An explicit
+                # capture-size list remains authoritative.
+                widest_uniform_decode = (
+                    self.scheduler_config.max_num_seqs * self.uniform_decode_query_len
+                )
+                if widest_uniform_decode <= max_cudagraph_capture_size:
+                    uniform_decode_sizes = [widest_uniform_decode]
             max_num_tokens = self.scheduler_config.max_num_batched_tokens
             max_cudagraph_capture_size = min(max_num_tokens, max_cudagraph_capture_size)
 

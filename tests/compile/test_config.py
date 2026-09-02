@@ -946,6 +946,36 @@ def test_default_cudagraph_capture_size_still_clamped_by_token_budget():
     assert 544 not in compilation_config.cudagraph_capture_sizes
 
 
+@pytest.mark.parametrize("scalar_max", [42, 43])
+def test_scalar_cudagraph_max_keeps_off_stride_uniform_decode_batch(scalar_max):
+    """A scalar maximum is a bound, not an explicit capture-size list."""
+    compilation_config = CompilationConfig(
+        cudagraph_mode=CUDAGraphMode.FULL_AND_PIECEWISE,
+        max_cudagraph_capture_size=scalar_max,
+    )
+    config = _mock_config_for_cudagraph_sizes(
+        max_num_seqs=6,
+        num_speculative_tokens=6,
+        max_num_batched_tokens=8192,
+        compilation_config=compilation_config,
+    )
+
+    VllmConfig._set_cudagraph_sizes(config)
+
+    assert compilation_config.max_cudagraph_capture_size == 42
+    assert compilation_config.cudagraph_capture_sizes == [
+        1,
+        2,
+        4,
+        8,
+        16,
+        24,
+        32,
+        40,
+        42,
+    ]
+
+
 @pytest.mark.skipif(
     not current_platform.support_static_graph_mode(),
     reason="Skip if static graph mode is not supported",
